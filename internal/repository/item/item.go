@@ -17,7 +17,7 @@ const (
 
 type Repository interface {
 	Post(ctx context.Context, req *desc.PostRequest) (*Item, error)
-	Get(ctx context.Context, _ *emptypb.Empty) ([]*Item, error)
+	Get(ctx context.Context, e *emptypb.Empty) ([]*Item, error)
 	Delete(ctx context.Context, req *desc.DeleteRequest) (*DeleteInfo, error)
 	Patch(ctx context.Context, req *desc.PatchRequest) (*Item, error)
 }
@@ -117,7 +117,7 @@ func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, er
 	return res, err
 }
 
-func (r *repository) Get(ctx context.Context) ([]*Item, error) {
+func (r *repository) Get(ctx context.Context, e *emptypb.Empty) ([]*Item, error) {
 	builder := sq.Select("id", "campaign_id", "name", "description", "priority", "removed", "createdAt").
 		PlaceholderFormat(sq.Dollar).
 		From(tableName)
