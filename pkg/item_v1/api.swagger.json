@@ -89,6 +89,13 @@
             "required": false,
             "type": "string",
             "format": "int64"
+          },
+          {
+            "name": "campaignId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
           }
         ],
         "tags": [
@@ -210,7 +217,7 @@
           "type": "string",
           "format": "int64"
         },
-        "note": {
+        "UpdateInfo": {
           "$ref": "#/definitions/item_v1UpdateItemInfo"
         }
       }

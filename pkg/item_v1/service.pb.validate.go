@@ -932,11 +932,11 @@ func (m *PatchRequest) validate(all bool) error {
 	// no validation rules for CampaignId
 
 	if all {
-		switch v := interface{}(m.GetNote()).(type) {
+		switch v := interface{}(m.GetUpdateInfo()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, PatchRequestValidationError{
-					field:  "Note",
+					field:  "UpdateInfo",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -944,16 +944,16 @@ func (m *PatchRequest) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, PatchRequestValidationError{
-					field:  "Note",
+					field:  "UpdateInfo",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetNote()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetUpdateInfo()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return PatchRequestValidationError{
-				field:  "Note",
+				field:  "UpdateInfo",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -1198,6 +1198,8 @@ func (m *DeleteRequest) validate(all bool) error {
 		}
 		errors = append(errors, err)
 	}
+
+	// no validation rules for CampaignId
 
 	if len(errors) > 0 {
 		return DeleteRequestMultiError(errors)
