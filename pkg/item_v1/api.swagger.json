@@ -1,0 +1,291 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "service.proto",
+    "version": "version not set"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/item/v1/create": {
+      "post": {
+        "operationId": "ItemV1_Post",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/item_v1PostResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/item_v1PostRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ItemV1"
+        ]
+      }
+    },
+    "/item/v1/list": {
+      "get": {
+        "operationId": "ItemV1_Get",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/item_v1GetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "ItemV1"
+        ]
+      }
+    },
+    "/item/v1/remove": {
+      "delete": {
+        "operationId": "ItemV1_Delete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/item_v1DeleteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "ItemV1"
+        ]
+      }
+    },
+    "/item/v1/update": {
+      "put": {
+        "operationId": "ItemV1_Patch",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/item_v1PatchResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/item_v1PatchRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ItemV1"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "item_v1DeleteResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "campaignId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "removed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "item_v1GetResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/item_v1Item"
+          }
+        }
+      }
+    },
+    "item_v1Item": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "campaignId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "item": {
+          "$ref": "#/definitions/item_v1ItemInfo"
+        },
+        "priority": {
+          "type": "string",
+          "format": "int64"
+        },
+        "removed": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "item_v1ItemInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "item_v1PatchRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "campaignId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "note": {
+          "$ref": "#/definitions/item_v1UpdateItemInfo"
+        }
+      }
+    },
+    "item_v1PatchResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/item_v1Item"
+        }
+      }
+    },
+    "item_v1PostRequest": {
+      "type": "object",
+      "properties": {
+        "campaignId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "info": {
+          "$ref": "#/definitions/item_v1ItemInfo"
+        }
+      }
+    },
+    "item_v1PostResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/item_v1Item"
+        }
+      }
+    },
+    "item_v1UpdateItemInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

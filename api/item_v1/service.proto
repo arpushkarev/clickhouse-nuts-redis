@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package api.item_v1;
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/arpushkarev/clickhouse-nuts-redis/pkg/item";
+
+service ItemV1 {
+  rpc Post (PostRequest) returns (PostResponse){
+    option (google.api.http) = {
+      post: "/item/v1/create"
+      body: "*"
+    };
+  }
+
+  rpc Get (google.protobuf.Empty) returns (GetResponse){
+    option (google.api.http) = {
+      get: "/item/v1/list"
+    };
+  }
+
+  rpc Patch (PatchRequest) returns (PatchResponse){
+    option (google.api.http) = {
+      put: "/item/v1/update"
+      body: "*"
+    };
+  }
+
+  rpc Delete (DeleteRequest) returns (DeleteResponse){
+    option (google.api.http) = {
+      delete: "/item/v1/remove"
+    };
+  };
+}
+
+message ItemInfo {
+  string name = 1 [(validate.rules).string.not_contains = "бля"];
+  string description = 2 [(validate.rules).string = {pattern: "(?i)^[A-Za-z]+$", max_bytes: 32}];
+}
+
+message Item {
+  int64 id = 1;
+  int64 campaignId = 2;
+  ItemInfo item = 3;
+  int64 priority = 4;
+  bool removed = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message UpdateItemInfo {
+  google.protobuf.StringValue name = 1 [(validate.rules).string = {pattern: "(?i)^[A-Za-z]+$",max_bytes: 32}];
+  google.protobuf.StringValue description = 2 [(validate.rules).string.not_contains = "сука"];
+}
+
+message PostRequest {
+  int64 campaignId = 1;
+  ItemInfo info = 2;
+}
+
+message PostResponse {
+  Item item = 1;
+}
+
+message GetResponse {
+  repeated Item items = 1;
+}
+
+message PatchRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  int64 campaignId = 2;
+  UpdateItemInfo note = 3;
+}
+
+message PatchResponse {
+  Item item = 1;
+}
+
+message DeleteRequest {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+}
+
+message DeleteResponse {
+  int64 id = 1 [(validate.rules).int64.gt = 0];
+  int64 campaignId = 2;
+  bool removed = 3;
+}
