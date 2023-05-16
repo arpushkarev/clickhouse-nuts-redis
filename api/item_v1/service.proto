@@ -74,7 +74,7 @@ message GetResponse {
 message PatchRequest {
   int64 id = 1 [(validate.rules).int64.gt = 0];
   int64 campaignId = 2;
-  UpdateItemInfo note = 3;
+  UpdateItemInfo UpdateInfo = 3;
 }
 
 message PatchResponse {
@@ -83,6 +83,7 @@ message PatchResponse {
 
 message DeleteRequest {
   int64 id = 1 [(validate.rules).int64.gt = 0];
+  int64 campaignId = 2;
 }
 
 message DeleteResponse {
