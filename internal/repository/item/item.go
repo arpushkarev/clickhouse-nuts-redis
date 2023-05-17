@@ -7,12 +7,15 @@ import (
 	"errors"
 	"log"
 
+	"github.com/ClickHouse/clickhouse-go"
 	sq "github.com/Masterminds/squirrel"
+	"github.com/arpushkarev/clickhouse-nuts-redis/internal/nats"
 	"github.com/arpushkarev/clickhouse-nuts-redis/internal/repository/redis"
 	desc "github.com/arpushkarev/clickhouse-nuts-redis/pkg/item_v1"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/jmoiron/sqlx"
+	natts "github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -42,8 +45,8 @@ type Item struct {
 	Item       *Info
 	Priority   int64
 	Removed    bool
-	CreatedAt  timestamppb.Timestamp
-	UpdatedAt  timestamppb.Timestamp
+	CreatedAt  timestamp.Timestamp
+	UpdatedAt  timestamp.Timestamp
 }
 
 type DeleteInfo struct {
@@ -61,6 +64,18 @@ func NewRepository(db *sqlx.DB) *repository {
 }
 
 func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, error) {
+
+	nc := nats.NewNuts()
+
+	chConn, err := clickhouse.Open("clickhouse://localhost:8123")
+	if err != nil {
+		log.Printf("failed to connect to clickhouse:%s", err.Error())
+	}
+	defer chConn.Close()
+
+	writer, _ := chConn.Prepare("INSERT INTO logs (data) VALUES")
+	defer writer.Close()
+
 	name := req.GetInfo().GetName()
 
 	builder := sq.Insert(table).
@@ -126,6 +141,20 @@ func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, er
 	}
 
 	priority += 1
+
+	logMessage := []byte("Record added")
+	err = nc.NutsConn.Publish("logs", logMessage)
+	if err != nil {
+		log.Printf("failed to log:%s", err.Error())
+	}
+
+	_, err = nc.NutsConn.Subscribe("logs", func(msg *natts.Msg) {
+		logMessage = msg.Data
+
+	})
+	if err != nil {
+		log.Printf("Error writing log to ClickHouse:%s", err.Error())
+	}
 
 	return res, err
 }
@@ -207,6 +236,17 @@ func (r *repository) Get(ctx context.Context, e *emptypb.Empty) ([]*Item, error)
 
 func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*DeleteInfo, error) {
 
+	nc := nats.NewNuts()
+
+	chConn, err := clickhouse.Open("clickhouse://localhost:8123")
+	if err != nil {
+		log.Printf("failed to connect to clickhouse:%s", err.Error())
+	}
+	defer chConn.Close()
+
+	writer, _ := chConn.Prepare("INSERT INTO logs (data) VALUES")
+	defer writer.Close()
+
 	cache, err := redis.New()
 	if err != nil {
 		log.Printf("Failed to create cache: %s", err.Error())
@@ -239,6 +279,20 @@ func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*Dele
 		return nil, err
 	}
 
+	logMessage := []byte("Record deleted")
+	err = nc.NutsConn.Publish("logs", logMessage)
+	if err != nil {
+		log.Printf("failed to log:%s", err.Error())
+	}
+
+	_, err = nc.NutsConn.Subscribe("logs", func(msg *natts.Msg) {
+		logMessage = msg.Data
+
+	})
+	if err != nil {
+		log.Printf("Error writing log to ClickHouse:%s", err.Error())
+	}
+
 	return &DeleteInfo{
 		Id:         res.Id,
 		CampaignId: res.CampaignId,
@@ -247,6 +301,24 @@ func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*Dele
 }
 
 func (r *repository) Patch(ctx context.Context, req *desc.PatchRequest) (*Item, error) {
+
+	nc := nats.NewNuts()
+
+	chConn, err := clickhouse.Open("clickhouse://localhost:8123")
+	if err != nil {
+		log.Printf("failed to connect to clickhouse:%s", err.Error())
+	}
+	defer chConn.Close()
+
+	writer, _ := chConn.Prepare("INSERT INTO logs (data) VALUES")
+	defer writer.Close()
+
+	cache, err := redis.New()
+	if err != nil {
+		log.Printf("Failed to create cache: %s", err.Error())
+	}
+
+	err = cache.Del(ctx, "items").Err()
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -281,6 +353,20 @@ func (r *repository) Patch(ctx context.Context, req *desc.PatchRequest) (*Item, 
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
+	}
+
+	logMessage := []byte("Record updated")
+	err = nc.NutsConn.Publish("logs", logMessage)
+	if err != nil {
+		log.Printf("failed to log:%s", err.Error())
+	}
+
+	_, err = nc.NutsConn.Subscribe("logs", func(msg *natts.Msg) {
+		logMessage = msg.Data
+
+	})
+	if err != nil {
+		log.Printf("Error writing log to ClickHouse:%s", err.Error())
 	}
 
 	return &Item{
