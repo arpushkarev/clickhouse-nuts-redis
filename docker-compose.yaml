@@ -23,3 +23,20 @@ services:
       - ALLOW_EMPTY_PASSWORD=yes
     ports:
       - "63791:6379"
+
+  nats:
+    image: nats:2.9-alpine3.17
+    container_name: nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+
+  clickhouse:
+    image: yandex/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    depends_on:
+      - nats
