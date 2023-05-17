@@ -22,7 +22,7 @@ func (i *Implementation) Post(ctx context.Context, req *desc.PostRequest) (*desc
 			},
 			Priority: item.Priority,
 			Removed:  item.Removed,
-			//CreatedAt:  item.CreatedAt, - нужно проверить тип
+			//CreatedAt: item.CreatedAt
 		},
 	}, nil
 }
