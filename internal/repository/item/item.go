@@ -2,12 +2,17 @@ package item
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"log"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/arpushkarev/clickhouse-nuts-redis/internal/repository/redis"
 	desc "github.com/arpushkarev/clickhouse-nuts-redis/pkg/item_v1"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -37,8 +42,8 @@ type Item struct {
 	Item       *Info
 	Priority   int64
 	Removed    bool
-	CreatedAt  timestamp.Timestamp
-	UpdatedAt  timestamp.Timestamp
+	CreatedAt  timestamppb.Timestamp
+	UpdatedAt  timestamppb.Timestamp
 }
 
 type DeleteInfo struct {
@@ -56,26 +61,28 @@ func NewRepository(db *sqlx.DB) *repository {
 }
 
 func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, error) {
+	name := req.GetInfo().GetName()
+
 	builder := sq.Insert(table).
 		PlaceholderFormat(sq.Dollar).
 		Columns("name").
-		Values(req.GetInfo().GetName()).
+		Values(name).
 		Suffix("returning id")
 
-	query, args, err := builder.ToSql()
+	query1, args1, err := builder.ToSql()
 	if err != nil {
 		return nil, err
 	}
 
-	row, err := r.db.QueryContext(ctx, query, args...)
+	row1, err := r.db.QueryContext(ctx, query1, args1...)
 	if err != nil {
 		return nil, err
 	}
-	defer row.Close()
+	defer row1.Close()
 
-	row.Next()
+	row1.Next()
 	var id int64
-	err = row.Scan(&id)
+	err = row1.Scan(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -83,23 +90,29 @@ func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, er
 	builderItems := sq.Insert(tableName).
 		PlaceholderFormat(sq.Dollar).
 		Columns("campaign_id", "name", "priority").
-		Values(id, req.GetInfo().GetName(), priority+1)
+		Values(id, name, priority+1)
 
-	query, args, err = builderItems.ToSql()
+	query2, args2, err := builderItems.ToSql()
 	if err != nil {
 		return nil, err
 	}
 
-	builderRes := sq.Select("id", "campaign_id", "name", "description", "priority", "removed", "createdAt").
+	row2, err := r.db.QueryContext(ctx, query2, args2...)
+	if err != nil {
+		return nil, err
+	}
+	defer row2.Close()
+
+	builderRes := sq.Select("id", "campaign_id", "name", "description", "priority", "removed", "created_at").
 		PlaceholderFormat(sq.Dollar).
 		From(tableName)
 
-	query, args, err = builderRes.ToSql()
+	query, args, err := builderRes.ToSql()
 	if err != nil {
 		return nil, err
 	}
 
-	row, err = r.db.QueryContext(ctx, query, args...)
+	row, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +131,26 @@ func (r *repository) Post(ctx context.Context, req *desc.PostRequest) (*Item, er
 }
 
 func (r *repository) Get(ctx context.Context, e *emptypb.Empty) ([]*Item, error) {
-	builder := sq.Select("id", "campaign_id", "name", "description", "priority", "removed", "createdAt").
+
+	cache, err := redis.New()
+	if err != nil {
+		log.Printf("Failed to create cache: %s", err.Error())
+	}
+
+	data, err := cache.Get(ctx, "items").Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	if data != nil {
+		var item []*Item
+
+		err = json.Unmarshal(data, &item)
+
+		return item, nil
+	}
+
+	builder := sq.Select("id", "campaign_id", "name", "description", "priority", "removed", "created_at").
 		PlaceholderFormat(sq.Dollar).
 		From(tableName)
 
@@ -163,10 +195,25 @@ func (r *repository) Get(ctx context.Context, e *emptypb.Empty) ([]*Item, error)
 		})
 	}
 
+	p, err := json.Marshal(resDesc)
+
+	err = cache.Set(ctx, "items", p, cache.Duration).Err()
+	if err != nil {
+		log.Printf("failed to set data into cahce:%s", err.Error())
+	}
+
 	return resDesc, nil
 }
 
 func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*DeleteInfo, error) {
+
+	cache, err := redis.New()
+	if err != nil {
+		log.Printf("Failed to create cache: %s", err.Error())
+	}
+
+	err = cache.Del(ctx, "items").Err()
+
 	builder := sq.Delete(tableName).
 		PlaceholderFormat(sq.Dollar).
 		Where(sq.Eq{"id": req.GetId(), "campaign_id": req.GetCampaignId()})
@@ -178,6 +225,9 @@ func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*Dele
 
 	row, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("errors.item.notFound")
+		}
 		return nil, err
 	}
 	defer row.Close()
@@ -197,6 +247,12 @@ func (r *repository) Delete(ctx context.Context, req *desc.DeleteRequest) (*Dele
 }
 
 func (r *repository) Patch(ctx context.Context, req *desc.PatchRequest) (*Item, error) {
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	builder := sq.Update(tableName).
 		PlaceholderFormat(sq.Dollar).
 		Set("name", req.GetUpdateInfo().Name).
@@ -208,15 +264,21 @@ func (r *repository) Patch(ctx context.Context, req *desc.PatchRequest) (*Item, 
 		return nil, err
 	}
 
-	row, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer row.Close()
+	row := tx.QueryRowContext(ctx, query, args...)
 
-	row.Next()
 	var item *Item
 	err = row.Scan(&item.Id, &item.CampaignId, &item.Item.Name, &item.Item.Description, &item.Priority, &item.Removed, &item.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			tx.Rollback()
+			return nil, errors.New("errors.item.notFound")
+		}
+
+		tx.Rollback()
+		return nil, err
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
